@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EdgeMint – Live Arbitrage (Binance + Kraken)</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header>
+    <h1>EdgeMint</h1>
+    <p class="sub">Live-Arbitrage nur mit HTML/CSS/JS – Daten von Binance & Kraken (Fallback: Demo)</p>
+  </header>
+
+  <section class="controls">
+    <label>
+      Modus:
+      <select id="mode">
+        <option value="live">Live (Binance + Kraken)</option>
+        <option value="demo">Demo (Mock-Exchanges)</option>
+      </select>
+    </label>
+
+    <label>
+      Symbol:
+      <select id="symbol">
+        <option>BTC</option>
+        <option>ETH</option>
+        <option>SOL</option>
+        <option>XRP</option>
+        <option>ADA</option>
+        <option>DOGE</option>
+        <option>LTC</option>
+        <option>BNB</option>
+      </select>
+    </label>
+
+    <label>
+      Notional (USD):
+      <input id="notional" type="number" min="10" step="10" value="1000" />
+    </label>
+
+    <label>
+      Refresh (Sek.):
+      <input id="refresh" type="number" min="2" step="1" value="5" />
+    </label>
+
+    <button id="btnStart">Start</button>
+    <button id="btnStop">Stop</button>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Quotes</h2>
+      <table id="quotes">
+        <thead>
+          <tr>
+            <th>Exchange</th>
+            <th>Symbol</th>
+            <th>Bid</th>
+            <th>Ask</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Arbitrage</h2>
+      <table id="arbs">
+        <thead>
+          <tr>
+            <th>Buy @</th>
+            <th>Sell @</th>
+            <th>Spread</th>
+            <th>Spread %</th>
+            <th>Profit (est.)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Log</h2>
+    <pre id="log"></pre>
+  </section>
+
+  <footer>
+    <small>Hinweis: Nur Anzeige/Simulation. Kein Trading. Datenquellen: Binance REST, Kraken REST.</small>
+  </footer>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
