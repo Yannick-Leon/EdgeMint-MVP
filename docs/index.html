@@ -3,35 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>EdgeMint – Live Arbitrage (Binance + Kraken)</title>
+  <title>EdgeMint – Live Arbitrage</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header>
     <h1>EdgeMint</h1>
-    <p class="sub">Live-Arbitrage nur mit HTML/CSS/JS – Daten von Binance & Kraken (Fallback: Demo)</p>
+    <p class="sub">Live-Arbitrage ohne Backend – mehrere Börsen, mehrere Paare</p>
   </header>
 
   <section class="controls">
     <label>
       Modus:
       <select id="mode">
-        <option value="live">Live (Binance + Kraken)</option>
-        <option value="demo">Demo (Mock-Exchanges)</option>
+        <option value="live">Live</option>
+        <option value="demo">Demo</option>
       </select>
     </label>
 
     <label>
       Symbol:
       <select id="symbol">
-        <option>BTC</option>
-        <option>ETH</option>
-        <option>SOL</option>
-        <option>XRP</option>
-        <option>ADA</option>
-        <option>DOGE</option>
-        <option>LTC</option>
-        <option>BNB</option>
+        <option>BTC</option><option>ETH</option><option>SOL</option><option>XRP</option>
+        <option>ADA</option><option>DOGE</option><option>LTC</option><option>BNB</option>
       </select>
     </label>
 
@@ -42,7 +36,12 @@
 
     <label>
       Refresh (Sek.):
-      <input id="refresh" type="number" min="2" step="1" value="5" />
+      <input id="refresh" type="number" min="3" step="1" value="6" />
+    </label>
+
+    <label style="gap:8px; flex-direction:row; align-items:center; margin-left:8px;">
+      <input id="scanAll" type="checkbox" />
+      Alle Symbole scannen
     </label>
 
     <button id="btnStart">Start</button>
@@ -51,35 +50,42 @@
 
   <section class="grid">
     <div class="card">
-      <h2>Quotes</h2>
+      <h2>Quotes (aktuelles Symbol)</h2>
       <table id="quotes">
         <thead>
-          <tr>
-            <th>Exchange</th>
-            <th>Symbol</th>
-            <th>Bid</th>
-            <th>Ask</th>
-          </tr>
+          <tr><th>Exchange</th><th>Symbol</th><th>Bid</th><th>Ask</th></tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
 
     <div class="card">
-      <h2>Arbitrage</h2>
+      <h2>Arbitrage (aktuelles Symbol)</h2>
       <table id="arbs">
         <thead>
-          <tr>
-            <th>Buy @</th>
-            <th>Sell @</th>
-            <th>Spread</th>
-            <th>Spread %</th>
-            <th>Profit (est.)</th>
-          </tr>
+          <tr><th>Buy @</th><th>Sell @</th><th>Spread</th><th>Spread %</th><th>Profit (est.)</th></tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
+  </section>
+
+  <section class="card" style="margin:0 24px 24px;">
+    <h2>Alle aktuellen Möglichkeiten</h2>
+    <table id="allOpps">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Buy @</th>
+          <th>Sell @</th>
+          <th>Spread</th>
+          <th>Spread %</th>
+          <th>Profit (est.)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <small class="sub">Hinweis: Live-REST kann Ratenlimits/CORS haben; bei Ausfällen wird pro Symbol in den Demo-Fallback gewechselt.</small>
   </section>
 
   <section class="card">
@@ -88,7 +94,7 @@
   </section>
 
   <footer>
-    <small>Hinweis: Nur Anzeige/Simulation. Kein Trading. Datenquellen: Binance REST, Kraken REST.</small>
+    <small>Nur Anzeige/Simulation. Kein Trading.</small>
   </footer>
 
   <script src="./app.js" defer></script>
