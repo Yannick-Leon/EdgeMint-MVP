@@ -1,7 +1,6 @@
 // ===== Utils / UI =====
 const $ = (s) => document.querySelector(s);
 const TBody = (s) => $(s).querySelector('tbody');
-
 function log(msg) {
   const ts = new Date().toLocaleTimeString();
   $('#log').textContent = `[${ts}] ${msg}\n` + $('#log').textContent;
@@ -9,25 +8,91 @@ function log(msg) {
 const fmtUsd = (x) => '$' + Number(x).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const pct    = (x) => (x * 100).toFixed(3) + '%';
 
-// ===== Pair Mapping =====
-// Wir normalisieren auf USD/USDT. Binance nutzt meist USDT; Kraken USD (BTC = XBT).
-const PAIRS = {
-  BTC: { binance: 'BTCUSDT', kraken: 'XBTUSD' },
-  ETH: { binance: 'ETHUSDT', kraken: 'ETHUSD' },
-  SOL: { binance: 'SOLUSDT', kraken: 'SOLUSD' },
-  XRP: { binance: 'XRPUSDT', kraken: 'XRPUSD' },
-  ADA: { binance: 'ADAUSDT', kraken: 'ADAUSD' },
-  DOGE:{ binance: 'DOGEUSDT', kraken: 'DOGEUSD' },
-  LTC: { binance: 'LTCUSDT', kraken: 'LTCUSD' },
-  BNB: { binance: 'BNBUSDT', kraken: null } // BNB meist nicht als USD-Spot auf Kraken
+// ===== Symbol-Mapping je Exchange =====
+// Wir normalisieren auf USD/USDT. (Achtung: Formate unterscheiden sich je Börse.)
+const MAP = {
+  BTC: {
+    binance:  'BTCUSDT',
+    kraken:   'XBTUSD',
+    bybit:    'BTCUSDT',
+    okx:      'BTC-USDT',
+    coinbase: 'BTC-USD',
+    bitstamp: 'btcusd',
+    kucoin:   'BTC-USDT'
+  },
+  ETH: {
+    binance:  'ETHUSDT',
+    kraken:   'ETHUSD',
+    bybit:    'ETHUSDT',
+    okx:      'ETH-USDT',
+    coinbase: 'ETH-USD',
+    bitstamp: 'ethusd',
+    kucoin:   'ETH-USDT'
+  },
+  SOL: {
+    binance:  'SOLUSDT',
+    kraken:   'SOLUSD',
+    bybit:    'SOLUSDT',
+    okx:      'SOL-USDT',
+    coinbase: 'SOL-USD',
+    bitstamp: 'solusd',
+    kucoin:   'SOL-USDT'
+  },
+  XRP: {
+    binance:  'XRPUSDT',
+    kraken:   'XRPUSD',
+    bybit:    'XRPUSDT',
+    okx:      'XRP-USDT',
+    coinbase: 'XRP-USD',
+    bitstamp: 'xrpusd',
+    kucoin:   'XRP-USDT'
+  },
+  ADA: {
+    binance:  'ADAUSDT',
+    kraken:   'ADAUSD',
+    bybit:    'ADAUSDT',
+    okx:      'ADA-USDT',
+    coinbase: 'ADA-USD',
+    bitstamp: 'adausd',
+    kucoin:   'ADA-USDT'
+  },
+  DOGE: {
+    binance:  'DOGEUSDT',
+    kraken:   'DOGEUSD',
+    bybit:    'DOGEUSDT',
+    okx:      'DOGE-USDT',
+    coinbase: 'DOGE-USD',
+    bitstamp: 'dogeusd',
+    kucoin:   'DOGE-USDT'
+  },
+  LTC: {
+    binance:  'LTCUSDT',
+    kraken:   'LTCUSD',
+    bybit:    'LTCUSDT',
+    okx:      'LTC-USDT',
+    coinbase: 'LTC-USD',
+    bitstamp: 'ltcusd',
+    kucoin:   'LTC-USDT'
+  },
+  BNB: {
+    binance:  'BNBUSDT',
+    kraken:   null,          // i. d. R. nicht als USD auf Kraken
+    bybit:    'BNBUSDT',
+    okx:      'BNB-USDT',
+    coinbase: null,          // nicht auf Coinbase Exchange als USD
+    bitstamp: null,
+    kucoin:   'BNB-USDT'
+  }
 };
 
-// ===== REST Fetcher (ohne Keys) =====
+// ===== REST-Adapter (Top-of-Book) =====
+// Alle ohne API-Key. Manche Börsen limitieren/setzen CORS → wir loggen Warnung und fahren fort.
+
 async function fetchBinanceBook(symbol) {
   const url = `https://api.binance.com/api/v3/ticker/bookTicker?symbol=${symbol}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Binance ${res.status}`);
-  const j = await res.json();
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Binance ${r.status}`);
+  const j = await r.json();
   const bid = Number(j.bidPrice), ask = Number(j.askPrice);
   if (!isFinite(bid) || !isFinite(ask)) throw new Error('Binance invalid book');
   return { exchange: 'Binance', bid, ask };
@@ -36,9 +101,9 @@ async function fetchBinanceBook(symbol) {
 async function fetchKrakenBook(pair) {
   if (!pair) throw new Error('Kraken pair not supported');
   const url = `https://api.kraken.com/0/public/Ticker?pair=${pair}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Kraken ${res.status}`);
-  const j = await res.json();
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Kraken ${r.status}`);
+  const j = await r.json();
   if (j.error && j.error.length) throw new Error('Kraken ' + j.error.join('; '));
   const key = Object.keys(j.result || {})[0];
   const obj = j.result?.[key];
@@ -48,7 +113,66 @@ async function fetchKrakenBook(pair) {
   return { exchange: 'Kraken', bid, ask };
 }
 
-// ===== Demo / Synthese =====
+// Bybit (Spot): v5 market tickers
+async function fetchBybitBook(symbol) {
+  const url = `https://api.bybit.com/v5/market/tickers?category=spot&symbol=${symbol}`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Bybit ${r.status}`);
+  const j = await r.json();
+  const it = j?.result?.list?.[0];
+  const bid = Number(it?.bid1Price), ask = Number(it?.ask1Price);
+  if (!isFinite(bid) || !isFinite(ask)) throw new Error('Bybit invalid book');
+  return { exchange: 'Bybit', bid, ask };
+}
+
+// OKX: v5 market ticker
+async function fetchOKXBook(instId) {
+  const url = `https://www.okx.com/api/v5/market/ticker?instId=${instId}`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`OKX ${r.status}`);
+  const j = await r.json();
+  const it = j?.data?.[0];
+  const bid = Number(it?.bidPx), ask = Number(it?.askPx);
+  if (!isFinite(bid) || !isFinite(ask)) throw new Error('OKX invalid book');
+  return { exchange: 'OKX', bid, ask };
+}
+
+// Coinbase Exchange: products/:product_id/ticker
+async function fetchCoinbaseBook(product) {
+  if (!product) throw new Error('Coinbase pair not supported');
+  const url = `https://api.exchange.coinbase.com/products/${product}/ticker`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Coinbase ${r.status}`);
+  const j = await r.json();
+  const bid = Number(j?.bid), ask = Number(j?.ask);
+  if (!isFinite(bid) || !isFinite(ask)) throw new Error('Coinbase invalid book');
+  return { exchange: 'Coinbase', bid, ask };
+}
+
+// Bitstamp: /api/v2/ticker/{pair}
+async function fetchBitstampBook(pair) {
+  if (!pair) throw new Error('Bitstamp pair not supported');
+  const url = `https://www.bitstamp.net/api/v2/ticker/${pair}`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Bitstamp ${r.status}`);
+  const j = await r.json();
+  const bid = Number(j?.bid), ask = Number(j?.ask);
+  if (!isFinite(bid) || !isFinite(ask)) throw new Error('Bitstamp invalid book');
+  return { exchange: 'Bitstamp', bid, ask };
+}
+
+// KuCoin: level1
+async function fetchKucoinBook(symbol) {
+  const url = `https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${symbol}`;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`KuCoin ${r.status}`);
+  const j = await r.json();
+  const bid = Number(j?.data?.bestBid), ask = Number(j?.data?.bestAsk);
+  if (!isFinite(bid) || !isFinite(ask)) throw new Error('KuCoin invalid book');
+  return { exchange: 'KuCoin', bid, ask };
+}
+
+// ===== Demo-Fallback =====
 function makeBookFromMid(mid, feeBps = 5, spreadBps = 8) {
   const fee = mid * (feeBps / 10000);
   const spr = mid * (spreadBps / 10000);
@@ -65,21 +189,22 @@ function mockQuotes(symbol) {
   ];
 }
 
-// ===== Live Aggregation =====
+// ===== Live Aggregation über alle Exchanges =====
 async function liveQuotes(symbol) {
-  const map = PAIRS[symbol];
-  const results = await Promise.allSettled([
-    fetchBinanceBook(map.binance),
-    map.kraken ? fetchKrakenBook(map.kraken) : Promise.resolve(null)
-  ]);
+  const m = MAP[symbol];
+  const tasks = [
+    m.binance  ? fetchBinanceBook(m.binance)   : null,
+    m.kraken   ? fetchKrakenBook(m.kraken)     : null,
+    m.bybit    ? fetchBybitBook(m.bybit)       : null,
+    m.okx      ? fetchOKXBook(m.okx)           : null,
+    m.coinbase ? fetchCoinbaseBook(m.coinbase) : null,
+    m.bitstamp ? fetchBitstampBook(m.bitstamp) : null,
+    m.kucoin   ? fetchKucoinBook(m.kucoin)     : null
+  ].filter(Boolean).map(p => p.catch(e => { log('Warn: ' + e.message); return null; }));
 
-  const quotes = [];
-  results.forEach((r) => {
-    if (r.status === 'fulfilled' && r.value) quotes.push({ ...r.value, symbol });
-    if (r.status === 'rejected') log('Warn: ' + r.reason?.message || r.reason);
-  });
+  const results = await Promise.all(tasks);
+  const quotes = results.filter(Boolean).map(q => ({ ...q, symbol }));
 
-  // Fallback, falls beides fehlschlägt
   return quotes.length ? quotes : mockQuotes(symbol);
 }
 
@@ -158,7 +283,7 @@ async function tick() {
     renderQuotes(symbol, quotes);
     const arbs = scanArb(quotes, notional);
     renderArbs(arbs);
-    log(`${mode === 'live' ? 'Live' : 'Demo'} Update ${symbol} – Quellen: ${quotes.map(q => q.exchange).join(' & ')}`);
+    log(`${mode === 'live' ? 'Live' : 'Demo'} ${symbol} – Quellen: ${quotes.map(q => q.exchange).join(', ')}`);
   } catch (e) {
     log('Fehler: ' + (e?.message || String(e)));
   }
