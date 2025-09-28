@@ -1,4 +1,5 @@
-// ===== EdgeMint Bot (Simulation) – Criterion: % ODER $; Fees beachtet =====
+// ===== EdgeMint Bot (Simulation) – Criterion: % ODER $; Fees; PNL→Notional =====
+const BOT_VERSION = '2025-09-28-pnl-to-notional-v1';
 
 const $ = (s) => document.querySelector(s);
 const TBody = (s) => $(s)?.querySelector('tbody');
@@ -64,7 +65,7 @@ function scanArb(quotes, notional){
           buyOn: buy.exchange, sellOn: sell.exchange,
           buyAsk: buy.ask,     sellBid: sell.bid,
           spread, spreadPct,
-          estProfit: notional * spreadPct      // Brutto, noch ohne Gebühren
+          estProfit: notional * spreadPct      // Brutto (ohne Fees)
         });
       }
     }
@@ -84,6 +85,9 @@ function renderOpps(list){
     tb.appendChild(tr);
   }
 }
+function updatePnlDisplay(){
+  const pnlEl = $('#pnl'); if(pnlEl) pnlEl.textContent = fmtUsd(pnl);
+}
 function renderTrade(t){
   const tb = TBody('#trades'); if(!tb) return;
   const tr=document.createElement('tr');
@@ -97,7 +101,7 @@ function renderTrade(t){
     <td>${fmtUsd(t.notional)}</td>
     <td>${fmtUsd(t.pnl)}</td>`;
   tb.prepend(tr);
-  const pnlEl = $('#pnl'); if(pnlEl) pnlEl.textContent = fmtUsd(pnl);
+  updatePnlDisplay();
 }
 
 // Netto-PnL nach Gebühren (bps pro Seite; beide Seiten verrechnet)
@@ -105,6 +109,22 @@ function pnlAfterFees(notional, spreadPct, feeBpsPerSide){
   const gross = notional * spreadPct;
   const fees  = notional * (2 * feeBpsPerSide / 10000);
   return gross - fees;
+}
+
+// 🔽 NEU: PnL → Notional übertragen (nur wenn PnL > 0)
+function transferPnlToNotional(){
+  const pnlVal = pnl;
+  if (pnlVal <= 0) {
+    log('Transfer abgebrochen: PnL ≤ 0');
+    return;
+  }
+  const notInput = $('#notional');
+  const current  = Number(notInput?.value || 0);
+  const next     = current + pnlVal;
+  if (notInput) notInput.value = next.toFixed(2);
+  pnl = 0;
+  updatePnlDisplay();
+  log(`PNL → Notional transferiert: +${fmtUsd(pnlVal)} | neues Notional: ${fmtUsd(next)}`);
 }
 
 async function botTick(){
@@ -121,7 +141,6 @@ async function botTick(){
   log(`tick – mode=${mode}, crit=${criterion}, minPct=${(minPct*100).toFixed(3)}%, minUsd=$${minUsd.toFixed(2)}, fee=${feeBps}bps/side`);
 
   try{
-    // Quotes + Chancen sammeln
     const tasks = list.map(sym =>
       (mode==='live' ? liveQuotes(sym) : Promise.resolve(mockQuotes(sym)))
         .then(qs => scanArb(qs, notional))
@@ -133,16 +152,16 @@ async function botTick(){
     const all = results.flat().sort((a,b)=>b.estProfit-a.estProfit);
     renderOpps(all);
 
-    // Auswahl: Filter-Kriterium
+    // Auswahl: Filter-Kriterium + Fees berücksichtigen
     let best = null;
     if (criterion === 'pct') {
-      // Netto > 0 & Spread% >= minPct
+      // Netto > 0 & Spread% ≥ minPct
       best = all.find(o => {
         const net = pnlAfterFees(notional, o.spreadPct, feeBps);
         return net > 0 && o.spreadPct >= minPct;
       });
     } else {
-      // Netto >= minUsd (absoluter Profit in $), unabhängig vom %-Spread
+      // Netto ≥ minUsd (absoluter Profit in $)
       best = all.find(o => {
         const net = pnlAfterFees(notional, o.spreadPct, feeBps);
         return net >= minUsd;
@@ -161,7 +180,7 @@ async function botTick(){
         notional, pnl: net
       });
 
-      log(`TRADE ${best.symbol}: ${best.buyOn}→${best.sellOn} | spread=${fmtUsd(best.spread)} | net=${fmtUsd(net)} (after ${feeBps}bps/side)`);
+      log(`TRADE ${best.symbol}: ${best.buyOn}→${best.sellOn} | net=${fmtUsd(net)} (after ${feeBps}bps/side)`);
     } else {
       log('Keine Chance passend zum Kriterium/Fees gefunden');
     }
@@ -175,7 +194,7 @@ function start(){
   const interval = Math.max(3, Number($('#refresh')?.value || 6))*1000;
   botTick();
   timer = setInterval(botTick, interval);
-  log('Bot gestartet');
+  log('Bot gestartet | ' + BOT_VERSION);
 }
 function stop(){
   if(!timer) return;
@@ -186,4 +205,5 @@ function stop(){
 document.addEventListener('DOMContentLoaded', ()=>{
   $('#btnStart')?.addEventListener('click', start);
   $('#btnStop')?.addEventListener('click', stop);
+  $('#btnTransfer')?.addEventListener('click', transferPnlToNotional);
 });
