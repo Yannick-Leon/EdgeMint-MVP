@@ -34,3 +34,9 @@ footer { padding:12px 24px; color:var(--muted); }
   background: #161a2f; /* gleiche Farbe wie .card */
   z-index: 1;
 }
+
+/* kurzes Highlight beim Aktualisieren des Notional-Felds */
+input.flash {
+  box-shadow: 0 0 0 2px rgba(58,199,103,.6);
+  transition: box-shadow .6s ease;
+}
