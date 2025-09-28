@@ -123,6 +123,10 @@ function transferPnlToNotional(){
   const current  = Number(notInput?.value || 0);
   const next     = current + pnlVal;
   if (notInput) notInput.value = next.toFixed(2);
+  if (notInput) {
+  notInput.classList.add('flash');
+  setTimeout(() => notInput.classList.remove('flash'), 600);
+}
   pnl = 0;
   updatePnlDisplay();
   log(`PNL → Notional transferiert: +${fmtUsd(pnlVal)} | neues Notional: ${fmtUsd(next)}`);
@@ -189,6 +193,7 @@ async function botTick(){
     log('Fehler: '+(e?.message||String(e)));
   }
 }
+
 
 function start(){
   if(timer) return;
