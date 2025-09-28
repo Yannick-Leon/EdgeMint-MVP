@@ -1,4 +1,4 @@
-// ===== EdgeMint Bot (Simulation) – Browser only =====
+// ===== EdgeMint Bot (Simulation) – Criterion: % ODER $; Fees beachtet =====
 
 const $ = (s) => document.querySelector(s);
 const TBody = (s) => $(s)?.querySelector('tbody');
@@ -56,10 +56,16 @@ function scanArb(quotes, notional){
     for(let j=0;j<quotes.length;j++){
       if(i===j) continue;
       const buy=quotes[i], sell=quotes[j];
-      const spread=sell.bid-buy.ask;
+      const spread=sell.bid-buy.ask;           // $-Differenz
       if(spread>0){
-        const spreadPct = spread / buy.ask;
-        out.push({symbol:buy.symbol||'-', buyOn:buy.exchange, sellOn:sell.exchange, buyAsk:buy.ask, sellBid:sell.bid, spread, spreadPct, estProfit:notional*spreadPct});
+        const spreadPct = spread / buy.ask;    // %-Spread
+        out.push({
+          symbol: buy.symbol||'-',
+          buyOn: buy.exchange, sellOn: sell.exchange,
+          buyAsk: buy.ask,     sellBid: sell.bid,
+          spread, spreadPct,
+          estProfit: notional * spreadPct      // Brutto, noch ohne Gebühren
+        });
       }
     }
   }
@@ -94,18 +100,28 @@ function renderTrade(t){
   const pnlEl = $('#pnl'); if(pnlEl) pnlEl.textContent = fmtUsd(pnl);
 }
 
+// Netto-PnL nach Gebühren (bps pro Seite; beide Seiten verrechnet)
+function pnlAfterFees(notional, spreadPct, feeBpsPerSide){
+  const gross = notional * spreadPct;
+  const fees  = notional * (2 * feeBpsPerSide / 10000);
+  return gross - fees;
+}
+
 async function botTick(){
   const my = ++runId;
 
-  const mode   = $('#mode')?.value || 'demo';
-  const list   = ($('#symbols')?.value || 'BTC,ETH').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
+  const mode     = $('#mode')?.value || 'demo';
+  const list     = ($('#symbols')?.value || 'BTC,ETH').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
   const notional = Number($('#notional')?.value || 1000);
-  const minPct  = Number($('#minPct')?.value || 0.15) / 100;
+  const feeBps   = Number($('#feeBps')?.value || 8);            // bps pro Seite
+  const criterion= ($('#criterion')?.value || 'pct');            // 'pct' | 'usd'
+  const minPct   = Number($('#minPct')?.value || 0.15) / 100;   // nur wenn pct
+  const minUsd   = Number($('#minUsd')?.value || 2);            // nur wenn usd
 
-  log(`tick – mode=${mode}, symbols=${list.join('/')}, min=${(minPct*100).toFixed(2)}%`);
+  log(`tick – mode=${mode}, crit=${criterion}, minPct=${(minPct*100).toFixed(3)}%, minUsd=$${minUsd.toFixed(2)}, fee=${feeBps}bps/side`);
 
   try{
-    // quotes + opps sammeln
+    // Quotes + Chancen sammeln
     const tasks = list.map(sym =>
       (mode==='live' ? liveQuotes(sym) : Promise.resolve(mockQuotes(sym)))
         .then(qs => scanArb(qs, notional))
@@ -117,27 +133,37 @@ async function botTick(){
     const all = results.flat().sort((a,b)=>b.estProfit-a.estProfit);
     renderOpps(all);
 
-    // beste Chance >= minPct „handeln“
-    const best = all.find(o => o.spreadPct >= minPct);
+    // Auswahl: Filter-Kriterium
+    let best = null;
+    if (criterion === 'pct') {
+      // Netto > 0 & Spread% >= minPct
+      best = all.find(o => {
+        const net = pnlAfterFees(notional, o.spreadPct, feeBps);
+        return net > 0 && o.spreadPct >= minPct;
+      });
+    } else {
+      // Netto >= minUsd (absoluter Profit in $), unabhängig vom %-Spread
+      best = all.find(o => {
+        const net = pnlAfterFees(notional, o.spreadPct, feeBps);
+        return net >= minUsd;
+      });
+    }
+
     if(best){
-      // sehr simple Fee-Annahme: 8 bps pro Side (nur Demo)
-      const fees = best.buyAsk*0.0008 + best.sellBid*0.0008;
-      const pnlTrade = notional * best.spreadPct - fees;
-      pnl += pnlTrade;
+      const net = pnlAfterFees(notional, best.spreadPct, feeBps);
+      pnl += net;
 
       renderTrade({
         ts: Date.now(),
         symbol: best.symbol,
-        buyOn: best.buyOn,
-        sellOn: best.sellOn,
-        buyAsk: best.buyAsk,
-        sellBid: best.sellBid,
-        notional,
-        pnl: pnlTrade
+        buyOn: best.buyOn, sellOn: best.sellOn,
+        buyAsk: best.buyAsk, sellBid: best.sellBid,
+        notional, pnl: net
       });
-      log(`TRADE ${best.symbol}: ${best.buyOn}→${best.sellOn} | estPNL=${fmtUsd(pnlTrade)} (after fees)`);
+
+      log(`TRADE ${best.symbol}: ${best.buyOn}→${best.sellOn} | spread=${fmtUsd(best.spread)} | net=${fmtUsd(net)} (after ${feeBps}bps/side)`);
     } else {
-      log('Keine Chance ≥ Mindest-Spread gefunden');
+      log('Keine Chance passend zum Kriterium/Fees gefunden');
     }
   } catch(e){
     log('Fehler: '+(e?.message||String(e)));
