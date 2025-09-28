@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>EdgeMint – Live Arbitrage</title>
+  <title>EdgeMint – Live Arbitrage Dashboard</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header>
     <h1>EdgeMint</h1>
-    <p class="sub">Live-Arbitrage ohne Backend – mehrere Börsen, mehrere Paare</p>
+    <p class="sub">Live-Arbitrage ohne Backend – mehrere Börsen, mehrere Paare (Fallback: Demo)</p>
   </header>
 
   <section class="controls">
@@ -53,7 +53,12 @@
       <h2>Quotes (aktuelles Symbol)</h2>
       <table id="quotes">
         <thead>
-          <tr><th>Exchange</th><th>Symbol</th><th>Bid</th><th>Ask</th></tr>
+          <tr>
+            <th>Exchange</th>
+            <th>Symbol</th>
+            <th>Bid</th>
+            <th>Ask</th>
+          </tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -63,7 +68,13 @@
       <h2>Arbitrage (aktuelles Symbol)</h2>
       <table id="arbs">
         <thead>
-          <tr><th>Buy @</th><th>Sell @</th><th>Spread</th><th>Spread %</th><th>Profit (est.)</th></tr>
+          <tr>
+            <th>Buy @</th>
+            <th>Sell @</th>
+            <th>Spread</th>
+            <th>Spread %</th>
+            <th>Profit (est.)</th>
+          </tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -71,7 +82,7 @@
   </section>
 
   <section class="card" style="margin:0 24px 24px;">
-    <h2>Alle aktuellen Möglichkeiten</h2>
+    <h2>Top 6 – aktuelle Möglichkeiten</h2>
     <table id="allOpps">
       <thead>
         <tr>
@@ -85,7 +96,7 @@
       </thead>
       <tbody></tbody>
     </table>
-    <small class="sub">Hinweis: Live-REST kann Ratenlimits/CORS haben; bei Ausfällen wird pro Symbol in den Demo-Fallback gewechselt.</small>
+    <small class="sub">Hinweis: Öffentliche REST-APIs können Ratenlimits/CORS haben. Bei Ausfällen nutzt das Dashboard automatisch Demo-Fallbacks.</small>
   </section>
 
   <section class="card">
