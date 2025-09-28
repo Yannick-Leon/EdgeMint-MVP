@@ -9,6 +9,8 @@ function log(msg) {
   $('#log').textContent = `[${ts}] ${msg}\n` + $('#log').textContent;
 }
 
+const MAX_ROWS = 6;
+
 // ===== Symbol-Mapping je Exchange =====
 const MAP = {
   BTC: { binance:'BTCUSDT', kraken:'XBTUSD', bybit:'BTCUSDT', okx:'BTC-USDT', coinbase:'BTC-USD', bitstamp:'btcusd', kucoin:'BTC-USDT' },
@@ -96,14 +98,26 @@ function renderArbs(arbs){
 function renderAllOpps(list){
   const tb = TBody('#allOpps');
   tb.innerHTML = '';
-  if(!list.length){
+
+  if (!list || !list.length) {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td colspan="6" style="color:#a8b3c7">Keine positiven Spreads gefunden</td>`;
     tb.appendChild(tr);
     return;
   }
 
-  for (const a of list.slice(0, 6)) {
+  // Dedupe nach (symbol,buyOn,sellOn) und dann Top MAX_ROWS
+  const seen = new Set();
+  const deduped = [];
+  for (const o of list) {
+    const key = `${o.symbol}|${o.buyOn}|${o.sellOn}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(o);
+  }
+
+  const top = deduped.slice(0, MAX_ROWS);
+  for (const a of top) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${a.symbol}</td>
@@ -124,6 +138,11 @@ async function tick(){
   const symbol = $('#symbol').value;
   const notional = Number($('#notional').value || 1000);
   const scanAll = $('#scanAll').checked;
+  
+  const allOpps = results.flat().sort((a,b)=> b.estProfit - a.estProfit);
+
+// ⬇️ zusätzlicher Guard – schon hier auf 6 begrenzen
+renderAllOpps(allOpps.slice(0, MAX_ROWS));
 
   try{
     // 1) aktuelles Symbol
