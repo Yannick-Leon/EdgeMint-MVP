@@ -18,3 +18,19 @@ td.good { color: var(--good); }
 td.bad { color: var(--bad); }
 #log { height:160px; overflow:auto; background:#0e1226; border:1px solid #2a325a; border-radius:8px; padding:10px; }
 footer { padding:12px 24px; color:var(--muted); }
+
+/* Fixierte, scrollbare Tabellen-Container */
+.table-wrap {
+  max-height: 280px;      /* Höhe nach Wunsch anpassen */
+  overflow-y: auto;
+  border: 1px solid #232848;
+  border-radius: 8px;
+}
+
+/* Optional: Kopf sticky machen, damit Spaltenüberschriften sichtbar bleiben */
+.table-wrap table thead th {
+  position: sticky;
+  top: 0;
+  background: #161a2f; /* gleiche Farbe wie .card */
+  z-index: 1;
+}
