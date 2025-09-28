@@ -113,6 +113,7 @@ function pnlAfterFees(notional, spreadPct, feeBpsPerSide){
 
 // 🔽 NEU: PnL → Notional übertragen (nur wenn PnL > 0)
 function transferPnlToNotional(){
+  window.transferPnlToNotional = transferPnlToNotional; // für inline onclick & Konsole
   const pnlVal = pnl;
   if (pnlVal <= 0) {
     log('Transfer abgebrochen: PnL ≤ 0');
@@ -202,8 +203,22 @@ function stop(){
   log('Bot gestoppt');
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  $('#btnStart')?.addEventListener('click', start);
-  $('#btnStop')?.addEventListener('click', stop);
-  $('#btnTransfer')?.addEventListener('click', transferPnlToNotional);
+document.addEventListener('DOMContentLoaded', () => {
+  const btnStart    = document.getElementById('btnStart');
+  const btnStop     = document.getElementById('btnStop');
+  const btnTransfer = document.getElementById('btnTransfer');
+
+  if (btnStart)    btnStart.addEventListener('click', start);
+  if (btnStop)     btnStop.addEventListener('click', stop);
+  if (btnTransfer) btnTransfer.addEventListener('click', transferPnlToNotional);
+
+  // Fallback: falls irgendwas das Binding verzögert, binden wir nach 500 ms nochmal
+  setTimeout(() => {
+    const b = document.getElementById('btnTransfer');
+    if (b && !b.__bound) {
+      b.addEventListener('click', transferPnlToNotional);
+      b.__bound = true;
+      log('Fallback-Bind für btnTransfer ausgeführt');
+    }
+  }, 500);
 });
