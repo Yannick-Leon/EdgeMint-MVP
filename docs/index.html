@@ -7,10 +7,13 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header>
-    <h1>EdgeMint</h1>
-    <p class="sub">Live-Arbitrage ohne Backend – mehrere Börsen, mehrere Paare (Fallback: Demo)</p>
-  </header>
+<header>
+  <h1>EdgeMint</h1>
+  <p class="sub">Live-Arbitrage ohne Backend – mehrere Börsen, mehrere Paare (Fallback: Demo)</p>
+  <p style="margin-top:8px;">
+    <a href="./bot.html" style="color:#8ac7ff; text-decoration:underline;">→ Bot (Simulation)</a>
+  </p>
+</header>
 
   <section class="controls">
     <label>
@@ -49,37 +52,30 @@
   </section>
 
   <section class="grid">
-    <div class="card">
-      <h2>Quotes (aktuelles Symbol)</h2>
+  <div class="card">
+    <h2>Quotes (aktuelles Symbol)</h2>
+    <div class="table-wrap">
       <table id="quotes">
         <thead>
-          <tr>
-            <th>Exchange</th>
-            <th>Symbol</th>
-            <th>Bid</th>
-            <th>Ask</th>
-          </tr>
+          <tr><th>Exchange</th><th>Symbol</th><th>Bid</th><th>Ask</th></tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
+  </div>
 
-    <div class="card">
-      <h2>Arbitrage (aktuelles Symbol)</h2>
+  <div class="card">
+    <h2>Arbitrage (aktuelles Symbol)</h2>
+    <div class="table-wrap">
       <table id="arbs">
         <thead>
-          <tr>
-            <th>Buy @</th>
-            <th>Sell @</th>
-            <th>Spread</th>
-            <th>Spread %</th>
-            <th>Profit (est.)</th>
-          </tr>
+          <tr><th>Buy @</th><th>Sell @</th><th>Spread</th><th>Spread %</th><th>Profit (est.)</th></tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
-  </section>
+  </div>
+</section>
 
   <section class="card" style="margin:0 24px 24px;">
     <h2>Top 6 – aktuelle Möglichkeiten</h2>
