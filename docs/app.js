@@ -94,12 +94,18 @@ function renderArbs(arbs){
   }
 }
 function renderAllOpps(list){
-  const tb=TBody('#allOpps'); tb.innerHTML='';
-  if(!list.length){ const tr=document.createElement('tr'); tr.innerHTML=`<td colspan="6" style="color:#a8b3c7">Keine positiven Spreads gefunden</td>`; tb.appendChild(tr); return;}
-  // Top 50 anzeigen
-  for(const a of list.slice(0,50)){
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
+  const tb = TBody('#allOpps');
+  tb.innerHTML = '';
+  if(!list.length){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="6" style="color:#a8b3c7">Keine positiven Spreads gefunden</td>`;
+    tb.appendChild(tr);
+    return;
+  }
+
+  for (const a of list.slice(0, 6)) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
       <td>${a.symbol}</td>
       <td>${a.buyOn}</td>
       <td>${a.sellOn}</td>
