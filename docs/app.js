@@ -1,24 +1,43 @@
-// ====== EdgeMint Static App (Browser only) ======
+// ====== EdgeMint Static App (robust) ======
 
 // --- Config / Globals ---
-const MAX_ROWS = 6;     // Top-N für "Alle Möglichkeiten"
+const MAX_ROWS = 6;
 let timer = null;
-let tickRunId = 0;      // schützt vor Race Conditions bei parallelen tick()-Durchläufen
+let tickRunId = 0;
 
-// --- DOM Helpers / UI ---
+// --- Error logger (auch für unerwartete Fehler) ---
+window.onerror = (msg, src, line, col, err) => {
+  log(`JS-Error: ${msg} @${line}:${col} ${err ? (err.stack || '') : ''}`);
+};
+window.onunhandledrejection = (ev) => {
+  log(`Unhandled promise rejection: ${ev.reason?.message || ev.reason}`);
+};
+
+// --- DOM helpers ---
 const $ = (s) => document.querySelector(s);
-const TBody = (s) => $(s).querySelector('tbody');
+const TBody = (s) => {
+  const table = $(s);
+  if (!table) return null;
+  const tb = table.querySelector('tbody');
+  // wenn kein <tbody> existiert, lege eins an
+  if (!tb) {
+    const newTb = document.createElement('tbody');
+    table.appendChild(newTb);
+    return newTb;
+  }
+  return tb;
+};
 const fmtUsd = (x) => '$' + Number(x).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const pct    = (x) => (x * 100).toFixed(3) + '%';
-
 function log(msg) {
   const ts = new Date().toLocaleTimeString();
-  const el = $('#log');
-  if (!el) return;
-  el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+  const box = $('#log');
+  if (box) box.textContent = `[${ts}] ${msg}\n` + box.textContent;
+  // zusätzlich in die Konsole – hilft beim Debuggen
+  console.log(`[EdgeMint] ${msg}`);
 }
 
-// --- Symbol-Mapping je Exchange (USD/USDT-normiert) ---
+// --- Symbol-Mapping (USD/USDT-normiert) ---
 const MAP = {
   BTC: { binance:'BTCUSDT', kraken:'XBTUSD', bybit:'BTCUSDT', okx:'BTC-USDT', coinbase:'BTC-USD', bitstamp:'btcusd', kucoin:'BTC-USDT' },
   ETH: { binance:'ETHUSDT', kraken:'ETHUSD', bybit:'ETHUSDT', okx:'ETH-USDT', coinbase:'ETH-USD', bitstamp:'ethusd', kucoin:'ETH-USDT' },
@@ -39,24 +58,14 @@ async function fetchCoinbaseBook(p){if(!p)throw new Error('Coinbase pair not sup
 async function fetchBitstampBook(p){if(!p)throw new Error('Bitstamp pair not supported');const r=await fetch(`https://www.bitstamp.net/api/v2/ticker/${p}`,{cache:'no-store'});if(!r.ok)throw new Error(`Bitstamp ${r.status}`);const j=await r.json();const b=+j?.bid,a=+j?.ask;if(!isFinite(b)||!isFinite(a))throw new Error('Bitstamp invalid');return{exchange:'Bitstamp',bid:b,ask:a};}
 async function fetchKucoinBook(s){const r=await fetch(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${s}`,{cache:'no-store'});if(!r.ok)throw new Error(`KuCoin ${r.status}`);const j=await r.json();const b=+j?.data?.bestBid,a=+j?.data?.bestAsk;if(!isFinite(b)||!isFinite(a))throw new Error('KuCoin invalid');return{exchange:'KuCoin',bid:b,ask:a};}
 
-// --- Demo-Fallback (synthetische Bid/Ask) ---
-function makeBookFromMid(mid, feeBps=5, spreadBps=8){
-  const fee=mid*(feeBps/10000), spr=mid*(spreadBps/10000);
-  return { bid: mid - fee - spr/2, ask: mid + fee + spr/2 };
-}
-function mockQuotes(symbol){
-  const base = symbol==='BTC'?60000 : symbol==='ETH'?2500 : 100;
-  const drift = (Math.random()*200-100)*(symbol==='BTC'?1 : symbol==='ETH'?0.1 : 0.02);
-  const a=base+drift, b=base+drift*0.8;
-  return [
-    { exchange:'DemoA', symbol, ...makeBookFromMid(a) },
-    { exchange:'DemoB', symbol, ...makeBookFromMid(b) }
-  ];
-}
+// --- Demo-Fallback ---
+function makeBookFromMid(mid, feeBps=5, spreadBps=8){const fee=mid*(feeBps/10000), spr=mid*(spreadBps/10000);return{bid:mid-fee-spr/2,ask:mid+fee+spr/2};}
+function mockQuotes(symbol){const base=symbol==='BTC'?60000:symbol==='ETH'?2500:100;const drift=(Math.random()*200-100)*(symbol==='BTC'?1:symbol==='ETH'?0.1:0.02);const a=base+drift,b=base+drift*0.8;return[{exchange:'DemoA',symbol,...makeBookFromMid(a)},{exchange:'DemoB',symbol,...makeBookFromMid(b)}];}
 
-// --- Aggregation: Live-Quotes für EIN Symbol ---
+// --- Live-Quotes für EIN Symbol ---
 async function liveQuotes(symbol){
   const m = MAP[symbol];
+  if(!m){ log(`Unbekanntes Symbol: ${symbol}`); return mockQuotes(symbol || 'BTC'); }
   const tasks = [
     m.binance  ? fetchBinanceBook(m.binance)   : null,
     m.kraken   ? fetchKrakenBook(m.kraken)     : null,
@@ -72,7 +81,7 @@ async function liveQuotes(symbol){
   return quotes.length ? quotes : mockQuotes(symbol);
 }
 
-// --- Arbitrage-Berechnung ---
+// --- Arbitrage ---
 function scanArb(quotes, notional){
   const out=[];
   for(let i=0;i<quotes.length;i++){
@@ -80,16 +89,9 @@ function scanArb(quotes, notional){
       if(i===j) continue;
       const buy=quotes[i], sell=quotes[j];
       const spread = sell.bid - buy.ask;
-      if(spread > 0){
+      if(spread>0){
         const spreadPct = spread / buy.ask;
-        out.push({
-          symbol: buy.symbol || '-',
-          buyOn: buy.exchange,
-          sellOn: sell.exchange,
-          spread,
-          spreadPct,
-          estProfit: notional * spreadPct
-        });
+        out.push({ symbol:(buy.symbol||'-'), buyOn:buy.exchange, sellOn:sell.exchange, spread, spreadPct, estProfit:notional*spreadPct });
       }
     }
   }
@@ -100,9 +102,9 @@ function scanArb(quotes, notional){
 // --- Rendering ---
 function renderQuotes(symbol, quotes){
   const tb = TBody('#quotes'); if(!tb) return;
-  tb.innerHTML = '';
+  tb.innerHTML='';
   for(const q of quotes){
-    const tr = document.createElement('tr');
+    const tr=document.createElement('tr');
     tr.innerHTML = `
       <td>${q.exchange}</td>
       <td>${symbol}</td>
@@ -113,15 +115,14 @@ function renderQuotes(symbol, quotes){
 }
 function renderArbs(arbs){
   const tb = TBody('#arbs'); if(!tb) return;
-  tb.innerHTML = '';
+  tb.innerHTML='';
   if(!arbs.length){
     const tr=document.createElement('tr');
     tr.innerHTML = `<td colspan="5" style="color:#a8b3c7">Keine positive Spanne</td>`;
-    tb.appendChild(tr);
-    return;
+    tb.appendChild(tr); return;
   }
   for(const a of arbs){
-    const tr = document.createElement('tr');
+    const tr=document.createElement('tr');
     tr.innerHTML = `
       <td>${a.buyOn}</td>
       <td>${a.sellOn}</td>
@@ -133,26 +134,21 @@ function renderArbs(arbs){
 }
 function renderAllOpps(list){
   const tb = TBody('#allOpps'); if(!tb) return;
-  tb.innerHTML = '';
+  tb.innerHTML='';
 
   if(!list || !list.length){
     const tr=document.createElement('tr');
     tr.innerHTML = `<td colspan="6" style="color:#a8b3c7">Keine positiven Spreads gefunden</td>`;
-    tb.appendChild(tr);
-    return;
+    tb.appendChild(tr); return;
   }
-
-  // Dedupe (symbol, buyOn, sellOn) und hart auf MAX_ROWS begrenzen
-  const seen = new Set(), deduped=[];
+  const seen=new Set(), deduped=[];
   for(const o of list){
     const key = `${o.symbol}|${o.buyOn}|${o.sellOn}`;
     if(seen.has(key)) continue;
     seen.add(key); deduped.push(o);
   }
-  const top = deduped.slice(0, MAX_ROWS);
-
-  for(const a of top){
-    const tr = document.createElement('tr');
+  for(const a of deduped.slice(0, MAX_ROWS)){
+    const tr=document.createElement('tr');
     tr.innerHTML = `
       <td>${a.symbol}</td>
       <td>${a.buyOn}</td>
@@ -164,24 +160,32 @@ function renderAllOpps(list){
   }
 }
 
-// --- Ticker-Loop (mit Race-Guard) ---
+// --- Ticker-Loop (Race-Guard + Fallback Defaults) ---
 async function tick(){
-  const myRun = ++tickRunId; // markiert diesen Durchlauf als "der neueste"
+  const myRun = ++tickRunId;
 
-  const mode     = $('#mode').value;
-  const symbol   = $('#symbol').value;
-  const notional = Number($('#notional').value || 1000);
-  const scanAll  = $('#scanAll').checked;
+  // Safe reads mit Defaults (falls Elemente fehlen)
+  const modeSel   = $('#mode');
+  const symSel    = $('#symbol');
+  const notInp    = $('#notional');
+  const scanAllEl = $('#scanAll');
+
+  const mode     = modeSel?.value?.toLowerCase?.() || 'demo';
+  const symbol   = symSel?.value || 'BTC';
+  const notional = Number(notInp?.value || 1000);
+  const scanAll  = !!(scanAllEl && scanAllEl.checked);
+
+  log(`tick() start – mode=${mode}, symbol=${symbol}, scanAll=${scanAll}, notional=${notional}`);
 
   try {
     // 1) aktuelles Symbol
     const quotes = mode==='live' ? await liveQuotes(symbol) : mockQuotes(symbol);
-    if(myRun !== tickRunId) return; // Ergebnis ist veraltet -> nicht mehr rendern
+    if (myRun !== tickRunId) return;
 
     renderQuotes(symbol, quotes);
     renderArbs(scanArb(quotes, notional));
 
-    // 2) alle Symbole (optional)
+    // 2) Alle Symbole (optional)
     if (scanAll) {
       const symbols = Object.keys(MAP);
       const tasks = symbols.map(sym =>
@@ -189,12 +193,11 @@ async function tick(){
           .then(qs => scanArb(qs, notional).map(o => ({ ...o, symbol: sym })))
           .catch(e => { log(`Warn ${sym}: ${e.message || e}`); return []; })
       );
-
       const results = await Promise.all(tasks);
-      if(myRun !== tickRunId) return; // veraltet
+      if (myRun !== tickRunId) return;
 
       const allOpps = results.flat().sort((a,b)=> b.estProfit - a.estProfit);
-      renderAllOpps(allOpps.slice(0, MAX_ROWS)); // Guard 1
+      renderAllOpps(allOpps.slice(0, MAX_ROWS));
       log(`${mode==='live'?'Live':'Demo'} Scan ALL – Ergebnisse: ${allOpps.length}`);
     } else {
       renderAllOpps([]); // Panel leeren, wenn deaktiviert
@@ -202,29 +205,29 @@ async function tick(){
 
     log(`${mode==='live'?'Live':'Demo'} Update ${symbol}: ${quotes.map(q=>q.exchange).join(', ')}`);
   } catch (e) {
-    log('Fehler: ' + (e?.message || String(e)));
+    log('Fehler in tick(): ' + (e?.message || String(e)));
   }
 }
 
 // --- Start/Stop & Refresh Handling ---
 function start(){
   if (timer) return;
-  const interval = Math.max(3, Number($('#refresh').value || 6)) * 1000;
+  const refreshEl = $('#refresh');
+  const interval = Math.max(3, Number(refreshEl?.value || 6)) * 1000;
   tick();
   timer = setInterval(() => tick(), interval);
   log('⏱️ Auto-Refresh gestartet');
 }
 function stop(){
   if (!timer) return;
-  clearInterval(timer);
-  timer = null;
+  clearInterval(timer); timer=null;
   log('⏸️ Auto-Refresh gestoppt');
 }
 
-// --- Boot ---
 document.addEventListener('DOMContentLoaded', ()=>{
   $('#btnStart')?.addEventListener('click', start);
   $('#btnStop')?.addEventListener('click', stop);
   $('#refresh')?.addEventListener('change', ()=>{ if(timer){ stop(); start(); } });
+  // Autostart
   start();
 });
