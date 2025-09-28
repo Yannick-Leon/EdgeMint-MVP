@@ -4,6 +4,9 @@ const TBody = (s) => $(s).querySelector('tbody');
 const fmtUsd = (x) => '$' + Number(x).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const pct    = (x) => (x * 100).toFixed(3) + '%';
 
+const MAX_ROWS = 6;
+let tickRunId = 0; // steigende Laufnummer
+
 function log(msg) {
   const ts = new Date().toLocaleTimeString();
   $('#log').textContent = `[${ts}] ${msg}\n` + $('#log').textContent;
@@ -131,44 +134,54 @@ function renderAllOpps(list){
 }
 
 // ===== Controller =====
-let timer=null;
+let timer = null;
+let tickRunId = 0; // steigende Laufnummer gegen Race Conditions
 
-async function tick(){
+async function tick() {
+  const myRun = ++tickRunId; // diesen Durchlauf markieren
+
   const mode = $('#mode').value;
   const symbol = $('#symbol').value;
   const notional = Number($('#notional').value || 1000);
   const scanAll = $('#scanAll').checked;
-  
-  const allOpps = results.flat().sort((a,b)=> b.estProfit - a.estProfit);
 
-// ⬇️ zusätzlicher Guard – schon hier auf 6 begrenzen
-renderAllOpps(allOpps.slice(0, MAX_ROWS));
+  try {
+    // 1) aktuelles Symbol scannen
+    const quotes = mode === 'live' ? await liveQuotes(symbol) : mockQuotes(symbol);
+    if (myRun !== tickRunId) return; // falls inzwischen neuer Tick läuft → abbrechen
 
-  try{
-    // 1) aktuelles Symbol
-    const quotes = mode==='live' ? await liveQuotes(symbol) : mockQuotes(symbol);
     renderQuotes(symbol, quotes);
     renderArbs(scanArb(quotes, notional));
 
-    // 2) alle Symbole (optional)
-    if(scanAll){
+    // 2) alle Symbole scannen (wenn Checkbox aktiv)
+    if (scanAll) {
       const symbols = Object.keys(MAP);
       const tasks = symbols.map(sym =>
-        (mode==='live' ? liveQuotes(sym) : Promise.resolve(mockQuotes(sym)))
-          .then(qs => scanArb(qs, notional).map(o => ({...o, symbol: sym})))
-          .catch(e => { log(`Warn ${sym}: ${e.message||e}`); return []; })
+        (mode === 'live' ? liveQuotes(sym) : Promise.resolve(mockQuotes(sym)))
+          .then(qs => scanArb(qs, notional).map(o => ({ ...o, symbol: sym })))
+          .catch(e => {
+            log(`Warn ${sym}: ${e.message || e}`);
+            return [];
+          })
       );
+
       const results = await Promise.all(tasks);
-      const allOpps = results.flat().sort((a,b)=>b.estProfit-a.estProfit);
-      renderAllOpps(allOpps);
-      log(`${mode==='live'?'Live':'Demo'} Scan ALL – Ergebnisse: ${allOpps.length}`);
+      if (myRun !== tickRunId) return; // veraltetes Ergebnis nicht mehr anzeigen
+
+      const allOpps = results.flat().sort((a, b) => b.estProfit - a.estProfit);
+      renderAllOpps(allOpps.slice(0, MAX_ROWS)); // nur Top N anzeigen
+      log(`${mode === 'live' ? 'Live' : 'Demo'} Scan ALL – Ergebnisse: ${allOpps.length}`);
     } else {
-      renderAllOpps([]); // leer anzeigen wenn nicht aktiv
+      renderAllOpps([]); // Panel leeren, wenn deaktiviert
     }
 
-    log(`${mode==='live'?'Live':'Demo'} Update ${symbol}: ${quotes.map(q=>q.exchange).join(', ')}`);
-  } catch(e){
-    log('Fehler: '+(e?.message||String(e)));
+    log(
+      `${mode === 'live' ? 'Live' : 'Demo'} Update ${symbol}: ${quotes
+        .map(q => q.exchange)
+        .join(', ')}`
+    );
+  } catch (e) {
+    log('Fehler: ' + (e?.message || String(e)));
   }
 }
 
