@@ -63,7 +63,11 @@
     <button id="btnStart">Start</button>
     <button id="btnStop">Stop</button>
     <!-- 🔽 NEU: PnL nach Notional übertragen -->
-    <button id="btnTransfer" title="Übertrage den aktuellen positiven PnL zum Notional und setze PnL auf 0">PNL → Notional</button>
+    <button id="btnTransfer"
+        title="Übertrage den aktuellen positiven PnL zum Notional und setze PnL auf 0"
+        onclick="window.transferPnlToNotional && window.transferPnlToNotional()">
+  PNL → Notional
+</button>
   </section>
 
   <section class="grid">
