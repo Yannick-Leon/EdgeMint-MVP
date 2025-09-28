@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EdgeMint – Bot (Simulation)</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header>
+    <h1>EdgeMint – Bot (Simulation)</h1>
+    <p class="sub">Paper-Trading: findet Spreads & „führt“ simulierte Trades aus. Keine echten Orders.</p>
+    <p style="margin-top:8px;"><a href="./index.html" style="color:#8ac7ff; text-decoration:underline;">← Zurück zum Dashboard</a></p>
+  </header>
+
+  <section class="controls">
+    <label>
+      Modus:
+      <select id="mode">
+        <option value="live">Live</option>
+        <option value="demo">Demo</option>
+      </select>
+    </label>
+
+    <label>
+      Symbole (kommagetrennt):
+      <input id="symbols" type="text" value="BTC,ETH,SOL,XRP,ADA,DOGE,LTC,BNB" />
+    </label>
+
+    <label>
+      Notional / Trade (USD):
+      <input id="notional" type="number" min="10" step="10" value="1000" />
+    </label>
+
+    <label>
+      Min. Profit %:
+      <input id="minPct" type="number" min="0" step="0.01" value="0.15" />
+    </label>
+
+    <label>
+      Refresh (Sek.):
+      <input id="refresh" type="number" min="3" step="1" value="6" />
+    </label>
+
+    <button id="btnStart">Start</button>
+    <button id="btnStop">Stop</button>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Gefundene Chancen (Top 10)</h2>
+      <div class="table-wrap">
+        <table id="opps">
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Buy @</th><th>Sell @</th><th>Spread</th><th>Spread %</th><th>Profit est.</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Trade-Journal</h2>
+      <div class="table-wrap">
+        <table id="trades">
+          <thead>
+            <tr>
+              <th>Zeit</th><th>Symbol</th><th>Buy@Ex</th><th>Sell@Ex</th>
+              <th>BuyAsk</th><th>SellBid</th><th>Notional</th><th>PNL ($)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p style="margin-top:8px;">PNL gesamt: <strong id="pnl">$0.00</strong></p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Log</h2>
+    <pre id="log"></pre>
+  </section>
+
+  <footer>
+    <small>Nur Simulation / Paper-Trading. Kein echter Handel.</small>
+  </footer>
+
+  <script src="./bot.js" defer></script>
+</body>
+</html>
