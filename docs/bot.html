@@ -33,8 +33,26 @@
     </label>
 
     <label>
-      Min. Profit %:
+      Gebühren (bps/Seite):
+      <input id="feeBps" type="number" min="0" step="0.1" value="8" />
+    </label>
+
+    <label>
+      Kriterium:
+      <select id="criterion">
+        <option value="pct">Spread % (min. %)</option>
+        <option value="usd">Profit $ (min. $)</option>
+      </select>
+    </label>
+
+    <label id="fieldMinPct">
+      Min. Spread %:
       <input id="minPct" type="number" min="0" step="0.01" value="0.15" />
+    </label>
+
+    <label id="fieldMinUsd" style="display:none">
+      Min. Profit ($):
+      <input id="minUsd" type="number" min="0" step="0.01" value="2" />
     </label>
 
     <label>
@@ -53,7 +71,8 @@
         <table id="opps">
           <thead>
             <tr>
-              <th>Symbol</th><th>Buy @</th><th>Sell @</th><th>Spread</th><th>Spread %</th><th>Profit est.</th>
+              <th>Symbol</th><th>Buy @</th><th>Sell @</th>
+              <th>Spread</th><th>Spread %</th><th>Profit est.</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -87,6 +106,21 @@
     <small>Nur Simulation / Paper-Trading. Kein echter Handel.</small>
   </footer>
 
+  <script>
+    // kleines UI-Toggle für die Felder
+    document.addEventListener('DOMContentLoaded', () => {
+      const crit = document.getElementById('criterion');
+      const fPct = document.getElementById('fieldMinPct');
+      const fUsd = document.getElementById('fieldMinUsd');
+      const update = () => {
+        const v = crit.value;
+        fPct.style.display = v === 'pct' ? '' : 'none';
+        fUsd.style.display = v === 'usd' ? '' : 'none';
+      };
+      crit.addEventListener('change', update);
+      update();
+    });
+  </script>
   <script src="./bot.js" defer></script>
 </body>
 </html>
